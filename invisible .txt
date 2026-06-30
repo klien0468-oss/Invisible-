@@ -1,0 +1,200 @@
+--[[
+    FE INVISIBLE GUI - CYBERPUNK PREMIUM EDITION
+    - CHỈ GIỮ LẠI DUY NHẤT CHỨC NĂNG TÀNG HÌNH (INVISIBLE SEAT METHOD 1).
+    - Loại bỏ hoàn toàn thư viện Rayfield, thay bằng menu Neon đổi màu chống lỗi đen màn hình.
+]]
+
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local player = game.Players.LocalPlayer
+
+-- Các biến cấu hình chức năng Tàng hình gốc của sư phụ
+local invis_on = false
+local seatTeleportPosition = Vector3.new(-25.95, 400, 3537.55)
+local voidLevelYThreshold = -50
+local invis_transparency = 0.75
+local seatReturnHeartbeatConnection = nil
+
+-- Cấu hình màu sắc Cyberpunk chuẩn
+local CYBER_CYAN = Color3.fromRGB(0, 255, 255)
+local CYBER_PINK = Color3.fromRGB(255, 0, 127)
+local BG_DARK = Color3.fromRGB(15, 15, 20)
+local COMPONENT_BG = Color3.fromRGB(25, 25, 35)
+
+-- Khởi tạo Interface
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "CyberInvisGUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- Khung chính phong cách Cyberpunk
+local mainFrame = Instance.new("Frame")
+mainFrame.Size = UDim2.new(0, 200, 0, 50)
+mainFrame.Position = UDim2.new(0.5, -100, 0, 70) -- Đặt so le để không đè lên nút God Mode
+mainFrame.AnchorPoint = Vector2.new(0.5, 0)
+mainFrame.BackgroundColor3 = BG_DARK
+mainFrame.BorderSizePixel = 1
+mainFrame.BorderColor3 = CYBER_CYAN
+mainFrame.Active = true
+mainFrame.Draggable = true -- Hỗ trợ kéo thả trên di động
+mainFrame.Parent = screenGui
+
+-- Bo góc mượt mà
+local uiCorner = Instance.new("UICorner")
+uiCorner.CornerRadius = UDim.new(0, 8)
+uiCorner.Parent = mainFrame
+
+-- Hiệu ứng viền phát sáng chạy màu liên tục (Chống lỗi hiển thị)
+local FrameStroke = Instance.new("UIStroke")
+FrameStroke.Thickness = 1.5
+FrameStroke.Color = CYBER_CYAN
+FrameStroke.Parent = mainFrame
+
+task.spawn(function()
+    while task.wait(0.05) do
+        for i = 0, 1, 0.05 do
+            if FrameStroke and FrameStroke.Parent then
+                FrameStroke.Color = CYBER_CYAN:Lerp(CYBER_PINK, i)
+                task.wait(0.05)
+            else break end
+        end
+        for i = 0, 1, 0.05 do
+            if FrameStroke and FrameStroke.Parent then
+                FrameStroke.Color = CYBER_PINK:Lerp(CYBER_CYAN, i)
+                task.wait(0.05)
+            else break end
+        end
+    end
+end)
+
+-- Nút bấm Tàng hình Việt hóa
+local invisButton = Instance.new("TextButton")
+invisButton.Name = "InvisButton"
+invisButton.Size = UDim2.new(0.9, 0, 0.7, 0)
+invisButton.Position = UDim2.new(0.05, 0, 0.15, 0)
+invisButton.BackgroundColor3 = COMPONENT_BG
+invisButton.TextColor3 = CYBER_CYAN
+invisButton.Text = "TÀNG HÌNH: TẮT"
+invisButton.Font = Enum.Font.GothamBold
+invisButton.TextSize = 14
+invisButton.TextScaled = true -- Chống tràn chữ
+invisButton.Parent = mainFrame
+
+local buttonCorner = Instance.new("UICorner")
+buttonCorner.CornerRadius = UDim.new(0, 6)
+buttonCorner.Parent = invisButton
+
+-- Hàm xử lý độ trong suốt nhân vật gốc
+local function setCharacterTransparency(transparency)
+    local character = player.Character
+    if character then
+        for _, part in pairs(character:GetDescendants()) do
+            if part:IsA("BasePart") and part.Name ~= "HumanoidRootPart" then
+                part.Transparency = transparency
+            end
+        end
+    end
+end
+
+-- Hàm quản lý vòng lặp vị trí gốc
+local function startSeatReturnHeartbeat()
+    if seatReturnHeartbeatConnection then
+        seatReturnHeartbeatConnection:Disconnect()
+    end
+    seatReturnHeartbeatConnection = RunService.Heartbeat:Connect(function()
+        -- Giữ nguyên kết nối vòng lặp nếu cần xử lý logic tọa độ liên tục
+    end)
+end
+
+local function stopSeatReturnHeartbeat()
+    if seatReturnHeartbeatConnection then
+        seatReturnHeartbeatConnection:Disconnect()
+        seatReturnHeartbeatConnection = nil
+    end
+end
+
+-- HÀM KÍCH HOẠT TÀNG HÌNH (Giữ nguyên 100% logic Method 1 gốc của bạn)
+local function toggleInvisibility()
+    invis_on = not invis_on
+    
+    if invis_on then
+        invisButton.Text = "TÀNG HÌNH: BẬT"
+        invisButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+        invisButton.BackgroundColor3 = CYBER_PINK -- Đổi màu hồng rực khi bật
+        
+        setCharacterTransparency(invis_transparency)
+        
+        local character = player.Character
+        if character then
+            local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+            if humanoidRootPart then
+                local savedpos = humanoidRootPart.CFrame
+                task.wait(0.05)
+                pcall(function() character:MoveTo(seatTeleportPosition) end)
+                task.wait(0.05)
+                
+                -- Kiểm tra rớt Void
+                if not character:FindFirstChild("HumanoidRootPart") or character.HumanoidRootPart.Position.Y < voidLevelYThreshold then
+                    pcall(function() character:MoveTo(savedpos) end)
+                    invis_on = false
+                    invisButton.Text = "TÀNG HÌNH: TẮT"
+                    invisButton.TextColor3 = CYBER_CYAN
+                    invisButton.BackgroundColor3 = COMPONENT_BG
+                    setCharacterTransparency(0)
+                    return
+                end
+                
+                -- Tạo ghế tàng hình theo script gốc
+                local Seat = Instance.new('Seat')
+                Seat.Parent = workspace
+                Seat.Anchored = false
+                Seat.CanCollide = false
+                Seat.Name = 'invischair'
+                Seat.Transparency = 1
+                Seat.Position = seatTeleportPosition
+                
+                local Weld = Instance.new("Weld")
+                Weld.Part0 = Seat
+                local torso = character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso")
+                if torso then
+                    Weld.Part1 = torso
+                    Weld.Parent = Seat
+                    task.wait()
+                    pcall(function() Seat.CFrame = savedpos end)
+                    startSeatReturnHeartbeat()
+                else
+                    Seat:Destroy()
+                    stopSeatReturnHeartbeat()
+                end
+            else
+                stopSeatReturnHeartbeat()
+            end
+        else
+            stopSeatReturnHeartbeat()
+        end
+    else
+        -- Trạng thái tắt tàng hình và hoàn nguyên nhân vật
+        invisButton.Text = "TÀNG HÌNH: TẮT"
+        invisButton.TextColor3 = CYBER_CYAN
+        invisButton.BackgroundColor3 = COMPONENT_BG
+        
+        setCharacterTransparency(0)
+        task.spawn(function()
+            local inv = workspace:FindFirstChild('invischair')
+            if inv then
+                pcall(function() inv:Destroy() end)
+            end
+        end)
+        stopSeatReturnHeartbeat()
+    end
+end
+
+-- Kết nối sự kiện Click nút
+invisButton.MouseButton1Click:Connect(toggleInvisibility)
+
+-- Thông báo nhỏ góc màn hình khi chạy thành công
+game:GetService("StarterGui"):SetCore("SendNotification", { 
+	Title = "CYBER INVIS";
+	Text = "Chỉ giữ chức năng tàng hình gốc!";
+	Duration = 3
+})
